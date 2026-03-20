@@ -8,6 +8,7 @@ import Input from '../components/Input';
 import Select from '../components/Select';
 import { Plus } from 'lucide-react';
 import { Gasto, Wallet } from '../types';
+import { formatDateLocal } from '../lib/dateUtils';
 
 export default function Gastos() {
   const [gastos, setGastos] = useState<Gasto[]>([]);
@@ -99,7 +100,7 @@ export default function Gastos() {
     {
       header: 'Fecha',
       accessor: 'fecha',
-      render: (value: string) => new Date(value).toLocaleDateString('es-ES'),
+      render: (value: string) => formatDateLocal(value),
     },
     { header: 'Categoría', accessor: 'categoria' },
     {

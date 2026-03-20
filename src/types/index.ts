@@ -14,7 +14,8 @@ export interface Cliente {
   monto_esperado: number;
   moneda: string;
   frecuencia: 'unico' | 'mensual';
-  proxima_fecha_pago: string;
+  fecha_corte: string;
+  ultimo_pago?: string;
   estado: 'activo' | 'atrasado' | 'inactivo';
   created_at: string;
   updated_at: string;

@@ -8,6 +8,7 @@ import Input from '../components/Input';
 import Select from '../components/Select';
 import { Plus, Upload } from 'lucide-react';
 import { Pago, Cliente, Wallet } from '../types';
+import { formatDateLocal, parseDateLocal } from '../lib/dateUtils';
 
 interface PagoWithCliente extends Pago {
   cliente?: Cliente;
@@ -68,6 +69,18 @@ export default function Pagos() {
 
       await supabase.from('pagos').insert(pagoData);
 
+      const pagoFecha = formData.fecha;
+      const cliente = clientes.find((c) => c.id === formData.cliente_id);
+      const fechaPago = parseDateLocal(pagoFecha);
+      const ultimoPago = parseDateLocal(cliente?.ultimo_pago);
+      const debeActualizar = !ultimoPago || (fechaPago && fechaPago > ultimoPago);
+      if (debeActualizar) {
+        await supabase
+          .from('clientes')
+          .update({ ultimo_pago: pagoFecha })
+          .eq('id', formData.cliente_id);
+      }
+
       const wallet = wallets.find((w) => w.id === formData.wallet_id);
       if (wallet) {
         await supabase
@@ -104,7 +117,7 @@ export default function Pagos() {
     {
       header: 'Fecha',
       accessor: 'fecha',
-      render: (value: string) => new Date(value).toLocaleDateString('es-ES'),
+      render: (value: string) => formatDateLocal(value),
     },
     {
       header: 'Cliente',

@@ -8,6 +8,7 @@ import Input from '../components/Input';
 import Select from '../components/Select';
 import { Plus, DollarSign, History, Pencil } from 'lucide-react';
 import { Equipo as EquipoType, Wallet, Movimiento } from '../types';
+import { formatDateLocal } from '../lib/dateUtils';
 
 export default function Equipo() {
   const [equipo, setEquipo] = useState<EquipoType[]>([]);
@@ -455,7 +456,7 @@ export default function Equipo() {
               <tbody>
                 {memberPayments.map((p) => (
                   <tr key={p.id} className="border-b border-gray-100">
-                    <td className="py-2">{new Date(p.fecha).toLocaleDateString('es-ES')}</td>
+                    <td className="py-2">{formatDateLocal(p.fecha)}</td>
                     <td className="py-2">
                       <span
                         className={`px-2 py-0.5 rounded text-xs ${
