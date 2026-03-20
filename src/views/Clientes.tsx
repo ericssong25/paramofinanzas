@@ -35,6 +35,7 @@ export default function Clientes() {
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ by: string; order: 'asc' | 'desc' } | null>(null);
   const [formData, setFormData] = useState({
     nombre: '',
     servicio: '',
@@ -113,6 +114,35 @@ export default function Clientes() {
     });
   }
 
+  function handleSort(accessor: string, newOrder?: 'asc' | 'desc') {
+    setSortConfig((prev) => {
+      const order =
+        newOrder ?? (prev?.by === accessor ? (prev.order === 'asc' ? 'desc' : 'asc') : 'asc');
+      return { by: accessor, order };
+    });
+  }
+
+  const clientesOrdenados = [...clientes].sort((a, b) => {
+    if (!sortConfig) return 0;
+    const { by: sortBy, order: sortOrder } = sortConfig;
+    const mult = sortOrder === 'asc' ? 1 : -1;
+
+    if (sortBy === 'monto_esperado') {
+      return mult * (a.monto_esperado - b.monto_esperado);
+    }
+    if (sortBy === 'fecha_corte') {
+      const da = parseDateLocal(a.fecha_corte)?.getTime() ?? 0;
+      const db = parseDateLocal(b.fecha_corte)?.getTime() ?? 0;
+      return mult * (da - db);
+    }
+    if (sortBy === 'ultimo_pago') {
+      const da = parseDateLocal(a.ultimo_pago)?.getTime() ?? 0;
+      const db = parseDateLocal(b.ultimo_pago)?.getTime() ?? 0;
+      return mult * (da - db);
+    }
+    return 0;
+  });
+
   function openEditModal(cliente: Cliente) {
     setEditingCliente(cliente);
     setFormData({
@@ -134,6 +164,7 @@ export default function Clientes() {
     {
       header: 'Monto Esperado',
       accessor: 'monto_esperado',
+      sortable: true,
       render: (value: number, row: Cliente) =>
         `${row.moneda} $${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
     },
@@ -141,11 +172,13 @@ export default function Clientes() {
     {
       header: 'Fecha Corte',
       accessor: 'fecha_corte',
+      sortable: true,
       render: (value: string) => formatDateLocal(value),
     },
     {
       header: 'Último Pago',
       accessor: 'ultimo_pago',
+      sortable: true,
       render: (value: string) => formatDateLocal(value),
     },
     {
@@ -210,7 +243,13 @@ export default function Clientes() {
       </div>
 
       <Card>
-        <Table columns={columns} data={clientes} />
+        <Table
+          columns={columns}
+          data={clientesOrdenados}
+          sortBy={sortConfig?.by}
+          sortOrder={sortConfig?.order ?? 'asc'}
+          onSort={handleSort}
+        />
       </Card>
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nuevo Cliente">
