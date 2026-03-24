@@ -8,7 +8,12 @@ import Input from '../components/Input';
 import Select from '../components/Select';
 import { Plus, Pencil } from 'lucide-react';
 import { Cliente } from '../types';
-import { parseDateLocal, formatDateLocal } from '../lib/dateUtils';
+import {
+  parseDateLocal,
+  formatDateLocal,
+  formatDiaDeCadaMes,
+  getNextCorteTimestamp,
+} from '../lib/dateUtils';
 
 function mesesAdeudados(cliente: Cliente): number | null {
   const ultimo = parseDateLocal(cliente.ultimo_pago);
@@ -122,6 +127,7 @@ export default function Clientes() {
     });
   }
 
+  const hoyOrden = new Date();
   const clientesOrdenados = [...clientes].sort((a, b) => {
     if (!sortConfig) return 0;
     const { by: sortBy, order: sortOrder } = sortConfig;
@@ -131,9 +137,13 @@ export default function Clientes() {
       return mult * (a.monto_esperado - b.monto_esperado);
     }
     if (sortBy === 'fecha_corte') {
-      const da = parseDateLocal(a.fecha_corte)?.getTime() ?? 0;
-      const db = parseDateLocal(b.fecha_corte)?.getTime() ?? 0;
-      return mult * (da - db);
+      const ta = getNextCorteTimestamp(a.fecha_corte, hoyOrden);
+      const tb = getNextCorteTimestamp(b.fecha_corte, hoyOrden);
+      if (ta == null && tb == null) return 0;
+      if (ta == null) return 1;
+      if (tb == null) return -1;
+      const cmp = ta - tb;
+      return mult * cmp;
     }
     if (sortBy === 'ultimo_pago') {
       const da = parseDateLocal(a.ultimo_pago)?.getTime() ?? 0;
@@ -173,7 +183,7 @@ export default function Clientes() {
       header: 'Fecha Corte',
       accessor: 'fecha_corte',
       sortable: true,
-      render: (value: string) => formatDateLocal(value),
+      render: (value: string) => formatDiaDeCadaMes(value),
     },
     {
       header: 'Último Pago',

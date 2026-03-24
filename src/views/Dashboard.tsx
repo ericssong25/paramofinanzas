@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import StatCard from '../components/StatCard';
 import Card from '../components/Card';
-import { Wallet as WalletIcon, TrendingUp, TrendingDown, AlertCircle, DollarSign } from 'lucide-react';
+import { Wallet as WalletIcon, TrendingUp, AlertCircle, DollarSign } from 'lucide-react';
 import { Wallet, Cliente } from '../types';
-import { formatDateLocal, parseDateLocal } from '../lib/dateUtils';
+import { formatProximoDiaLabel, getNextCorteTimestamp } from '../lib/dateUtils';
 
 export default function Dashboard() {
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -39,12 +39,16 @@ export default function Dashboard() {
   }, 0);
 
   const clientesAtrasados = clientes.filter((c) => c.estado === 'atrasado');
+  const hoy = new Date();
   const clientesProximoPago = clientes
     .filter((c) => c.estado === 'activo')
     .sort((a, b) => {
-      const da = parseDateLocal(a.fecha_corte)?.getTime() ?? 0;
-      const db = parseDateLocal(b.fecha_corte)?.getTime() ?? 0;
-      return da - db;
+      const ta = getNextCorteTimestamp(a.fecha_corte, hoy);
+      const tb = getNextCorteTimestamp(b.fecha_corte, hoy);
+      if (ta == null && tb == null) return 0;
+      if (ta == null) return 1;
+      if (tb == null) return -1;
+      return ta - tb;
     })
     .slice(0, 5);
 
@@ -144,7 +148,7 @@ export default function Dashboard() {
                       ${cliente.monto_esperado.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {formatDateLocal(cliente.fecha_corte)}
+                      {formatProximoDiaLabel(cliente.fecha_corte)}
                     </div>
                   </div>
                 </div>
