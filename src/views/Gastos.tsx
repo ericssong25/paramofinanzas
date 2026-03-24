@@ -6,7 +6,7 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
 import Select from '../components/Select';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Gasto, Wallet } from '../types';
 import { formatDateLocal } from '../lib/dateUtils';
 
@@ -53,7 +53,12 @@ export default function Gastos() {
         fecha: new Date(formData.fecha).toISOString(),
       };
 
-      await supabase.from('gastos').insert(gastoData);
+      const { data: insertedGasto, error: insertErr } = await supabase
+        .from('gastos')
+        .insert(gastoData)
+        .select('id')
+        .single();
+      if (insertErr) throw insertErr;
 
       const wallet = wallets.find((w) => w.id === formData.wallet_id);
       if (wallet) {
@@ -71,6 +76,7 @@ export default function Gastos() {
         categoria: formData.categoria,
         nota: formData.nota,
         fecha: new Date(formData.fecha).toISOString(),
+        gasto_id: insertedGasto?.id,
       });
 
       setShowModal(false);
@@ -85,6 +91,23 @@ export default function Gastos() {
       loadData();
     } catch (error) {
       console.error('Error creating gasto:', error);
+    }
+  }
+
+  async function deleteGasto(gasto: Gasto) {
+    if (!confirm('¿Eliminar este gasto? Se revertirá el saldo de la wallet y el movimiento asociado.')) return;
+    try {
+      const wallet = wallets.find((w) => w.id === gasto.wallet_id);
+      if (wallet) {
+        await supabase
+          .from('wallets')
+          .update({ balance: wallet.balance + gasto.monto })
+          .eq('id', gasto.wallet_id);
+      }
+      await supabase.from('gastos').delete().eq('id', gasto.id);
+      loadData();
+    } catch (error) {
+      console.error('Error al eliminar gasto:', error);
     }
   }
 
@@ -113,6 +136,24 @@ export default function Gastos() {
       header: 'Nota',
       accessor: 'nota',
       render: (value: string) => value || '-',
+    },
+    {
+      header: '',
+      accessor: 'id',
+      render: (_: unknown, row: Gasto) => (
+        <Button
+          type="button"
+          variant="danger"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            void deleteGasto(row);
+          }}
+          aria-label="Eliminar gasto"
+        >
+          <Trash2 size={14} />
+        </Button>
+      ),
     },
   ];
 

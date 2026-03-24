@@ -6,9 +6,10 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
 import Select from '../components/Select';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { Movimiento, Wallet } from '../types';
 import { formatDateLocal } from '../lib/dateUtils';
+import { deleteMovimientoCompleto } from '../lib/deleteMovimiento';
 
 export default function Movimientos() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
@@ -122,6 +123,16 @@ export default function Movimientos() {
     }
   }
 
+  async function deleteMovimiento(mov: Movimiento) {
+    if (!confirm('¿Eliminar este movimiento? Se revertirán los saldos de las wallets afectadas.')) return;
+    try {
+      await deleteMovimientoCompleto(supabase, mov, wallets);
+      loadData();
+    } catch (error) {
+      console.error('Error al eliminar movimiento:', error);
+    }
+  }
+
   function getWalletName(id: string | null | undefined): string {
     if (!id) return '-';
     const w = wallets.find((x) => x.id === id);
@@ -199,6 +210,24 @@ export default function Movimientos() {
       header: 'Nota',
       accessor: 'nota',
       render: (value: string) => value || '-',
+    },
+    {
+      header: '',
+      accessor: 'id',
+      render: (_: unknown, row: Movimiento) => (
+        <Button
+          type="button"
+          variant="danger"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            void deleteMovimiento(row);
+          }}
+          aria-label="Eliminar movimiento"
+        >
+          <Trash2 size={14} />
+        </Button>
+      ),
     },
   ];
 

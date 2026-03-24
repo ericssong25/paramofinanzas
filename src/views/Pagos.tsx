@@ -6,7 +6,7 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
 import Select from '../components/Select';
-import { Plus, Upload } from 'lucide-react';
+import { Plus, Upload, Trash2 } from 'lucide-react';
 import { Pago, Cliente, Wallet } from '../types';
 import { formatDateLocal, parseDateLocal } from '../lib/dateUtils';
 
@@ -105,6 +105,36 @@ export default function Pagos() {
     }
   }
 
+  async function deletePago(pago: PagoWithCliente) {
+    if (!confirm('¿Eliminar este pago? Se revertirá el monto en la wallet y se actualizará la fecha de último pago del cliente.')) return;
+    try {
+      const wallet = wallets.find((w) => w.id === pago.wallet_id);
+      if (wallet) {
+        await supabase
+          .from('wallets')
+          .update({ balance: wallet.balance - pago.monto })
+          .eq('id', pago.wallet_id);
+      }
+
+      await supabase.from('pagos').delete().eq('id', pago.id);
+
+      const { data: ultimos } = await supabase
+        .from('pagos')
+        .select('fecha')
+        .eq('cliente_id', pago.cliente_id)
+        .order('fecha', { ascending: false })
+        .limit(1);
+
+      const nuevaUltima =
+        ultimos && ultimos.length > 0 ? ultimos[0].fecha.split('T')[0] : null;
+      await supabase.from('clientes').update({ ultimo_pago: nuevaUltima }).eq('id', pago.cliente_id);
+
+      loadData();
+    } catch (error) {
+      console.error('Error al eliminar pago:', error);
+    }
+  }
+
   const metodosPago = [
     { value: 'Zelle', label: 'Zelle' },
     { value: 'Efectivo', label: 'Efectivo' },
@@ -135,6 +165,24 @@ export default function Pagos() {
       header: 'Nota',
       accessor: 'nota',
       render: (value: string) => value || '-',
+    },
+    {
+      header: '',
+      accessor: 'id',
+      render: (_: unknown, row: PagoWithCliente) => (
+        <Button
+          type="button"
+          variant="danger"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            void deletePago(row);
+          }}
+          aria-label="Eliminar pago"
+        >
+          <Trash2 size={14} />
+        </Button>
+      ),
     },
   ];
 

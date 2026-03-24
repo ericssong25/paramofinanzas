@@ -1,13 +1,14 @@
-import { ReactNode } from 'react';
+import { ReactNode, MouseEventHandler } from 'react';
 
 interface ButtonProps {
   children: ReactNode;
-  onClick?: () => void;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
   variant?: 'primary' | 'secondary' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   type?: 'button' | 'submit';
   className?: string;
+  'aria-label'?: string;
 }
 
 export default function Button({
@@ -18,6 +19,7 @@ export default function Button({
   disabled = false,
   type = 'button',
   className = '',
+  'aria-label': ariaLabel,
 }: ButtonProps) {
   const baseClasses = 'font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2';
 
@@ -40,6 +42,7 @@ export default function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
       className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabledClasses} ${className}`}
     >
       {children}

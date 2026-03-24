@@ -6,9 +6,10 @@ import Button from '../components/Button';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
 import Select from '../components/Select';
-import { Plus, DollarSign, History, Pencil } from 'lucide-react';
+import { Plus, DollarSign, History, Pencil, Trash2 } from 'lucide-react';
 import { Equipo as EquipoType, Wallet, Movimiento } from '../types';
 import { formatDateLocal } from '../lib/dateUtils';
+import { deleteMovimientoCompleto } from '../lib/deleteMovimiento';
 
 export default function Equipo() {
   const [equipo, setEquipo] = useState<EquipoType[]>([]);
@@ -190,6 +191,18 @@ export default function Equipo() {
     setSelectedMember(member);
     loadMemberPayments(member.id);
     setShowHistoryModal(true);
+  }
+
+  async function deleteHistorialPago(p: Movimiento) {
+    if (!selectedMember) return;
+    if (!confirm('¿Eliminar este pago al equipo? Se revertirá la wallet y los adelantos/quincenas asociados.')) return;
+    try {
+      await deleteMovimientoCompleto(supabase, p, wallets);
+      await loadMemberPayments(selectedMember.id);
+      await loadData();
+    } catch (error) {
+      console.error('Error al eliminar pago de equipo:', error);
+    }
   }
 
   const columns = [
@@ -451,6 +464,7 @@ export default function Equipo() {
                   <th className="text-left py-2">Tipo</th>
                   <th className="text-right py-2">Monto</th>
                   <th className="text-left py-2">Nota</th>
+                  <th className="w-10 py-2" />
                 </tr>
               </thead>
               <tbody>
@@ -476,6 +490,16 @@ export default function Equipo() {
                     </td>
                     <td className="py-2 text-right font-medium">${p.monto.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td className="py-2 text-gray-600">{p.nota || '-'}</td>
+                    <td className="py-2">
+                      <button
+                        type="button"
+                        onClick={() => deleteHistorialPago(p)}
+                        className="p-1 rounded text-red-600 hover:bg-red-50"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

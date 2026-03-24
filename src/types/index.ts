@@ -65,6 +65,7 @@ export interface Movimiento {
   origen_wallet_id?: string;
   destino_wallet_id?: string;
   comision: number;
+  gasto_id?: string;
   pago_id?: string;
   equipo_id?: string;
   miembro_nombre?: string;
