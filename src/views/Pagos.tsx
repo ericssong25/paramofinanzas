@@ -9,9 +9,20 @@ import Select from '../components/Select';
 import { Plus, Upload, Trash2 } from 'lucide-react';
 import { Pago, Cliente, Wallet } from '../types';
 import { formatDateLocal, parseDateLocal } from '../lib/dateUtils';
+import { formatDiasCorteQuincenal } from '../lib/dateUtils';
 
 interface PagoWithCliente extends Pago {
   cliente?: Cliente;
+}
+
+function getPeriodoReferencia(periodoInput: string): string {
+  const [year, month] = periodoInput.split('-');
+  return `${year}-${month}-01`;
+}
+
+function getPeriodoInputFromIso(isoDate?: string): string {
+  if (!isoDate) return '';
+  return isoDate.slice(0, 7);
 }
 
 export default function Pagos() {
@@ -20,6 +31,7 @@ export default function Pagos() {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     cliente_id: '',
     monto: '',
@@ -28,6 +40,8 @@ export default function Pagos() {
     wallet_id: '',
     nota: '',
     fecha: new Date().toISOString().split('T')[0],
+    periodo: new Date().toISOString().slice(0, 7),
+    quincena_numero: '1',
   });
 
   useEffect(() => {
@@ -60,17 +74,52 @@ export default function Pagos() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitError(null);
     try {
+      const cliente = clientes.find((c) => c.id === formData.cliente_id);
+      if (!cliente) return;
+
+      const montoNuevo = parseFloat(formData.monto);
+      if (!Number.isFinite(montoNuevo) || montoNuevo <= 0) return;
+      const periodoReferencia = getPeriodoReferencia(formData.periodo);
+      const esQuincenal = cliente.frecuencia === 'quincenal';
+      const quincenaNumero = esQuincenal ? Number(formData.quincena_numero) : null;
+      if (esQuincenal && quincenaNumero !== 1 && quincenaNumero !== 2) {
+        setSubmitError('Debes seleccionar quincena 1 o 2 para clientes quincenales.');
+        return;
+      }
+      const abonosPeriodo = pagos
+        .filter(
+          (p) =>
+            p.cliente_id === formData.cliente_id &&
+            getPeriodoInputFromIso(p.periodo_referencia) === formData.periodo &&
+            (esQuincenal ? Number(p.quincena_numero) === quincenaNumero : true)
+        )
+        .reduce((acc, p) => acc + Number(p.monto || 0), 0);
+      const totalLuegoRegistro = abonosPeriodo + montoNuevo;
+      const objetivoPeriodo = esQuincenal ? cliente.monto_esperado / 2 : cliente.monto_esperado;
+      const completaPeriodo = totalLuegoRegistro >= objetivoPeriodo;
+
       const pagoData = {
-        ...formData,
-        monto: parseFloat(formData.monto),
+        cliente_id: formData.cliente_id,
+        monto: montoNuevo,
+        metodo: formData.metodo,
+        moneda: formData.moneda,
+        wallet_id: formData.wallet_id,
+        nota: formData.nota || null,
         fecha: new Date(formData.fecha).toISOString(),
+        periodo_referencia: periodoReferencia,
+        quincena_numero: esQuincenal ? (quincenaNumero as 1 | 2) : null,
+        tipo_registro: completaPeriodo ? ('completado' as const) : ('abono' as const),
       };
 
-      await supabase.from('pagos').insert(pagoData);
+      const { error: pagoError } = await supabase.from('pagos').insert(pagoData);
+      if (pagoError) {
+        setSubmitError(pagoError.message);
+        return;
+      }
 
       const pagoFecha = formData.fecha;
-      const cliente = clientes.find((c) => c.id === formData.cliente_id);
       const fechaPago = parseDateLocal(pagoFecha);
       const ultimoPago = parseDateLocal(cliente?.ultimo_pago);
       const debeActualizar = !ultimoPago || (fechaPago && fechaPago > ultimoPago);
@@ -83,13 +132,18 @@ export default function Pagos() {
 
       const wallet = wallets.find((w) => w.id === formData.wallet_id);
       if (wallet) {
-        await supabase
+        const { error: walletError } = await supabase
           .from('wallets')
           .update({ balance: wallet.balance + parseFloat(formData.monto) })
           .eq('id', formData.wallet_id);
+        if (walletError) {
+          setSubmitError(`Pago registrado, pero falló actualizar wallet: ${walletError.message}`);
+          return;
+        }
       }
 
       setShowModal(false);
+      setSubmitError(null);
       setFormData({
         cliente_id: '',
         monto: '',
@@ -98,10 +152,13 @@ export default function Pagos() {
         wallet_id: '',
         nota: '',
         fecha: new Date().toISOString().split('T')[0],
+        periodo: new Date().toISOString().slice(0, 7),
+        quincena_numero: '1',
       });
       loadData();
     } catch (error) {
       console.error('Error creating pago:', error);
+      setSubmitError('Error inesperado creando pago. Revisa consola para más detalles.');
     }
   }
 
@@ -143,6 +200,30 @@ export default function Pagos() {
     { value: 'Transferencia', label: 'Transferencia' },
   ];
 
+  const selectedCliente = clientes.find((c) => c.id === formData.cliente_id);
+  const selectedClienteEsQuincenal = selectedCliente?.frecuencia === 'quincenal';
+  const quincenaSeleccionada = Number(formData.quincena_numero);
+  const abonosPeriodoActual = pagos
+    .filter(
+      (p) =>
+        p.cliente_id === formData.cliente_id &&
+        getPeriodoInputFromIso(p.periodo_referencia) === formData.periodo &&
+        (selectedClienteEsQuincenal ? Number(p.quincena_numero) === quincenaSeleccionada : true)
+    )
+    .reduce((acc, p) => acc + Number(p.monto || 0), 0);
+  const objetivoPeriodoActual = selectedCliente
+    ? selectedCliente.frecuencia === 'quincenal'
+      ? selectedCliente.monto_esperado / 2
+      : selectedCliente.monto_esperado
+    : 0;
+  const restantePeriodoActual = selectedCliente
+    ? Math.max(0, objetivoPeriodoActual - abonosPeriodoActual)
+    : 0;
+  const montoDigitado = parseFloat(formData.monto || '0');
+  const restanteLuegoRegistro = selectedCliente
+    ? Math.max(0, restantePeriodoActual - montoDigitado)
+    : 0;
+
   const columns = [
     {
       header: 'Fecha',
@@ -155,10 +236,31 @@ export default function Pagos() {
       render: (_: any, row: PagoWithCliente) => row.cliente?.nombre || '-',
     },
     {
+      header: 'Período',
+      accessor: 'periodo_referencia',
+      render: (_: string, row: PagoWithCliente) => {
+        const periodo = row.periodo_referencia ? row.periodo_referencia.slice(0, 7) : '-';
+        return row.quincena_numero ? `${periodo} Q${row.quincena_numero}` : periodo;
+      },
+    },
+    {
       header: 'Monto',
       accessor: 'monto',
       render: (value: number, row: Pago) =>
         `${row.moneda} $${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+    },
+    {
+      header: 'Tipo',
+      accessor: 'tipo_registro',
+      render: (value: string, row: PagoWithCliente) => (
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            value === 'completado' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+          }`}
+        >
+          {value === 'completado' ? (row.quincena_numero ? 'Completa quincena' : 'Completa mes') : 'Abono'}
+        </span>
+      ),
     },
     { header: 'Método', accessor: 'metodo' },
     {
@@ -215,6 +317,15 @@ export default function Pagos() {
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nuevo Pago">
         <form onSubmit={handleSubmit}>
+          {submitError && (
+            <div className="mb-4 p-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800">
+              <div className="font-semibold mb-1">No se pudo registrar el pago</div>
+              <div className="break-words">{submitError}</div>
+              <div className="mt-1 text-red-700">
+                Importante: si ves este error, no se debe tocar el saldo de la wallet.
+              </div>
+            </div>
+          )}
           <Select
             label="Cliente"
             value={formData.cliente_id}
@@ -226,10 +337,71 @@ export default function Pagos() {
           <Input
             label="Monto"
             type="number"
+            step="0.01"
+            min="0.01"
             value={formData.monto}
             onChange={(value) => setFormData({ ...formData, monto: value })}
             required
           />
+
+          <Input
+            label="Período a aplicar (mes)"
+            type="month"
+            value={formData.periodo}
+            onChange={(value) => setFormData({ ...formData, periodo: value })}
+            required
+          />
+
+          {selectedClienteEsQuincenal && (
+            <>
+              <Select
+                label="Quincena"
+                value={formData.quincena_numero}
+                onChange={(value) => setFormData({ ...formData, quincena_numero: value })}
+                options={[
+                  { value: '1', label: 'Primera quincena' },
+                  { value: '2', label: 'Segunda quincena' },
+                ]}
+                required
+              />
+              {selectedCliente?.fecha_corte && (
+                <div className="mb-4 -mt-2 text-xs text-blue-700">
+                  Fechas de corte estimadas: {formatDiasCorteQuincenal(selectedCliente.fecha_corte)}
+                </div>
+              )}
+            </>
+          )}
+
+          {selectedCliente && (
+            <div className="mb-4 p-3 rounded-lg border border-blue-200 bg-blue-50 text-sm text-blue-900">
+              <div className="font-semibold mb-1">
+                Estado del período {formData.periodo}
+                {selectedClienteEsQuincenal ? ` - Q${formData.quincena_numero}` : ''}
+              </div>
+              <div>
+                Monto esperado {selectedClienteEsQuincenal ? 'de esta quincena' : ''}:{' '}
+                {selectedCliente.moneda} $
+                {objetivoPeriodoActual.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </div>
+              <div>
+                Abonado acumulado: {selectedCliente.moneda} $
+                {abonosPeriodoActual.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </div>
+              <div>
+                Restante actual: {selectedCliente.moneda} $
+                {restantePeriodoActual.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </div>
+              <div className="mt-1 font-medium">
+                {montoDigitado > 0
+                  ? restanteLuegoRegistro === 0
+                    ? 'Este registro completaria el pago del mes.'
+                    : `Luego de este abono, faltarian ${selectedCliente.moneda} $${restanteLuegoRegistro.toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                      })}.`
+                  : 'Ingresa monto para simular el saldo luego del registro.'}
+              </div>
+            </div>
+          )}
 
           <Select
             label="Método de Pago"

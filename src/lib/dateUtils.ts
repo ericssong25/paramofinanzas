@@ -49,6 +49,22 @@ export function formatDiaDeCadaMes(dateStr: string | null | undefined): string {
   return `${dia} de cada mes`;
 }
 
+/** Para clientes quincenales, calcula dos dias estimados de corte dentro del mes. */
+export function getDiasCorteQuincenal(
+  dateStr: string | null | undefined
+): { primera: number; segunda: number } | null {
+  const diaBase = getDiaCorte(dateStr);
+  if (diaBase == null) return null;
+  const segunda = Math.min(diaBase + 15, 30);
+  return { primera: diaBase, segunda };
+}
+
+export function formatDiasCorteQuincenal(dateStr: string | null | undefined): string {
+  const dias = getDiasCorteQuincenal(dateStr);
+  if (!dias) return '-';
+  return `${dias.primera} y ${dias.segunda} de cada mes`;
+}
+
 /** Etiqueta para dashboard: "Próximo 24" */
 export function formatProximoDiaLabel(dateStr: string | null | undefined): string {
   const dia = getDiaCorte(dateStr);

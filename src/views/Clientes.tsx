@@ -12,6 +12,7 @@ import {
   parseDateLocal,
   formatDateLocal,
   formatDiaDeCadaMes,
+  formatDiasCorteQuincenal,
   getNextCorteTimestamp,
 } from '../lib/dateUtils';
 
@@ -47,6 +48,7 @@ export default function Clientes() {
     monto_esperado: '',
     moneda: 'USD',
     frecuencia: 'mensual',
+    periodicidad_pago: 'mensual',
     fecha_corte: '',
     ultimo_pago: '',
     estado: 'activo',
@@ -113,6 +115,7 @@ export default function Clientes() {
       monto_esperado: '',
       moneda: 'USD',
       frecuencia: 'mensual',
+      periodicidad_pago: 'mensual',
       fecha_corte: '',
       ultimo_pago: '',
       estado: 'activo',
@@ -161,6 +164,7 @@ export default function Clientes() {
       monto_esperado: cliente.monto_esperado.toString(),
       moneda: cliente.moneda,
       frecuencia: cliente.frecuencia,
+      periodicidad_pago: cliente.periodicidad_pago || 'mensual',
       fecha_corte: cliente.fecha_corte ? cliente.fecha_corte.split('T')[0] : '',
       ultimo_pago: cliente.ultimo_pago ? cliente.ultimo_pago.split('T')[0] : '',
       estado: cliente.estado,
@@ -180,10 +184,24 @@ export default function Clientes() {
     },
     { header: 'Frecuencia', accessor: 'frecuencia' },
     {
+      header: 'Pago',
+      accessor: 'periodicidad_pago',
+      render: (value: string) => (
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            value === 'quincenal' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+          }`}
+        >
+          {value === 'quincenal' ? 'Quincenal' : 'Mensual'}
+        </span>
+      ),
+    },
+    {
       header: 'Fecha Corte',
       accessor: 'fecha_corte',
       sortable: true,
-      render: (value: string) => formatDiaDeCadaMes(value),
+      render: (value: string, row: Cliente) =>
+        row.frecuencia === 'quincenal' ? formatDiasCorteQuincenal(value) : formatDiaDeCadaMes(value),
     },
     {
       header: 'Último Pago',
@@ -305,6 +323,18 @@ export default function Clientes() {
             options={[
               { value: 'unico', label: 'Único' },
               { value: 'mensual', label: 'Mensual' },
+              { value: 'quincenal', label: 'Quincenal' },
+            ]}
+            required
+          />
+
+          <Select
+            label="Periodicidad de pago (control)"
+            value={formData.periodicidad_pago}
+            onChange={(value) => setFormData({ ...formData, periodicidad_pago: value })}
+            options={[
+              { value: 'mensual', label: 'Mensual (paga completo)' },
+              { value: 'quincenal', label: 'Quincenal (paga en 2 partes)' },
             ]}
             required
           />
@@ -316,6 +346,11 @@ export default function Clientes() {
             onChange={(value) => setFormData({ ...formData, fecha_corte: value })}
             placeholder="Opcional"
           />
+          {formData.frecuencia === 'quincenal' && formData.fecha_corte && (
+            <div className="mb-4 -mt-2 text-xs text-blue-700">
+              Cortes estimados: {formatDiasCorteQuincenal(formData.fecha_corte)}
+            </div>
+          )}
 
           <Input
             label="Último Pago"
@@ -384,6 +419,18 @@ export default function Clientes() {
             options={[
               { value: 'unico', label: 'Único' },
               { value: 'mensual', label: 'Mensual' },
+              { value: 'quincenal', label: 'Quincenal' },
+            ]}
+            required
+          />
+
+          <Select
+            label="Periodicidad de pago (control)"
+            value={formData.periodicidad_pago}
+            onChange={(value) => setFormData({ ...formData, periodicidad_pago: value })}
+            options={[
+              { value: 'mensual', label: 'Mensual (paga completo)' },
+              { value: 'quincenal', label: 'Quincenal (paga en 2 partes)' },
             ]}
             required
           />
@@ -394,6 +441,11 @@ export default function Clientes() {
             value={formData.fecha_corte}
             onChange={(value) => setFormData({ ...formData, fecha_corte: value })}
           />
+          {formData.frecuencia === 'quincenal' && formData.fecha_corte && (
+            <div className="mb-4 -mt-2 text-xs text-blue-700">
+              Cortes estimados: {formatDiasCorteQuincenal(formData.fecha_corte)}
+            </div>
+          )}
 
           <Input
             label="Último Pago"

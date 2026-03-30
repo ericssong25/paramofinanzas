@@ -13,7 +13,8 @@ export interface Cliente {
   servicio: string;
   monto_esperado: number;
   moneda: string;
-  frecuencia: 'unico' | 'mensual';
+  frecuencia: 'unico' | 'mensual' | 'quincenal';
+  periodicidad_pago?: 'mensual' | 'quincenal';
   fecha_corte: string;
   ultimo_pago?: string;
   estado: 'activo' | 'atrasado' | 'inactivo';
@@ -26,6 +27,9 @@ export interface Pago {
   cliente_id: string;
   fecha: string;
   monto: number;
+  periodo_referencia?: string;
+  quincena_numero?: 1 | 2 | null;
+  tipo_registro?: 'abono' | 'completado';
   metodo: string;
   moneda: string;
   comprobante_url?: string;
