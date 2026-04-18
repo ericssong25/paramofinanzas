@@ -74,6 +74,12 @@ export interface Movimiento {
   equipo_id?: string;
   miembro_nombre?: string;
   tipo_pago_equipo?: TipoPagoEquipo;
+  /** Varias filas del mismo pago a equipo (multimoneda) comparten este id */
+  equipo_pago_grupo_id?: string | null;
+  /** Equivalente en USD de esta línea (monto nativo / tasa si no es USD) */
+  equipo_pago_equiv_usd?: number | null;
+  /** Moneda local por 1 USD (ej. COP por USD); null si la línea es USD */
+  equipo_pago_tasa?: number | null;
   categoria?: string;
   nota?: string;
   created_at: string;
