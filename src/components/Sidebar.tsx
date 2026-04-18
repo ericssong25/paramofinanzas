@@ -21,8 +21,8 @@ export default function Sidebar({ currentView, onViewChange, userEmail, onLogout
   return (
     <div className="w-64 h-screen bg-white border-r border-gray-200 fixed left-0 top-0 flex flex-col">
       <div className="p-6">
-        <h1 className="text-xl font-bold text-gray-900">FinanzasApp</h1>
-        <p className="text-sm text-gray-500 mt-1">Gestión Financiera</p>
+        <h1 className="text-xl font-bold text-gray-900">Páramo Creativo</h1>
+        <p className="text-sm text-gray-500 mt-1">Gestión financiera</p>
       </div>
 
       <nav className="px-3 flex-1">
